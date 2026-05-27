@@ -1,3 +1,5 @@
+// backend/server.js
+
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
@@ -17,6 +19,8 @@ import {
 
 const app = express();
 
+// Allowed frontend origins
+
 const allowedOrigins = (
   process.env.CLIENT_URL || ""
 )
@@ -24,12 +28,14 @@ const allowedOrigins = (
   .map((s) => s.trim())
   .filter(Boolean);
 
+// CORS options
+
 const corsOptions = {
   origin(origin, cb) {
     // Allow requests with no origin
     if (!origin) return cb(null, true);
 
-    // Allow localhost in development
+    // Allow localhost during development
     if (
       /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(
         origin
@@ -38,7 +44,7 @@ const corsOptions = {
       return cb(null, true);
     }
 
-    // Allow CLIENT_URL origins
+    // Allow frontend URLs from env
     if (allowedOrigins.includes(origin)) {
       return cb(null, true);
     }
@@ -69,6 +75,9 @@ const corsOptions = {
 // Middleware
 
 app.use(cors(corsOptions));
+
+// IMPORTANT FOR PREFLIGHT REQUESTS
+app.options("*", cors(corsOptions));
 
 app.use(express.json({ limit: "1mb" }));
 
@@ -107,7 +116,7 @@ connectDB()
   .then(() => {
     app.listen(PORT, () => {
       console.log(
-        `Server running on http://localhost:${PORT}`
+        `Server running on port ${PORT}`
       );
     });
   })
