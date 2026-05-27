@@ -4,40 +4,58 @@ import crypto from "crypto";
 import { sendEmail } from "../utils/sendEmail.js";
 
 const signToken = (id) => {
-  return jwt.sign(
-    { id },
-    process.env.JWT_SECRET,
-    { expiresIn: process.env.JWT_EXPIRES_IN }
-  );
+  return jwt.sign({ id }, process.env.JWT_SECRET, {
+    expiresIn: process.env.JWT_EXPIRES_IN,
+  });
+};
+
+// Send JWT in httpOnly cookie
+
+const sendTokenResponse = (user, statusCode, res) => {
+  const token = signToken(user._id);
+
+  res.cookie("token", token, {
+    httpOnly: true,
+
+    secure: process.env.NODE_ENV === "production",
+
+    sameSite: "strict",
+
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+  });
+
+  res.status(statusCode).json({
+    user,
+  });
 };
 
 // Email validation
-const emailRegex =
-  /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // Strong password validation
+
 const passwordRegex =
   /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+
+// REGISTER
 
 export const register = async (req, res) => {
   try {
     const { name, email, password } = req.body;
 
-    // Required fields
     if (!name || !email || !password) {
       return res.status(400).json({
         message: "Name, email and password are required",
       });
     }
 
-    // Email validation
     if (!emailRegex.test(email)) {
       return res.status(400).json({
         message: "Invalid email format",
       });
     }
 
-    // Password validation
     if (!passwordRegex.test(password)) {
       return res.status(400).json({
         message:
@@ -45,7 +63,6 @@ export const register = async (req, res) => {
       });
     }
 
-    // Existing user check
     const exists = await User.findOne({
       email: email.toLowerCase(),
     });
@@ -56,20 +73,17 @@ export const register = async (req, res) => {
       });
     }
 
-    // Create user
     const user = await User.create({
       name,
+
       email: email.toLowerCase(),
+
       password,
+
       avatar: name.charAt(0).toUpperCase(),
     });
 
-    const token = signToken(user._id);
-
-    res.status(201).json({
-      user,
-      token,
-    });
+    sendTokenResponse(user, 201, res);
   } catch (err) {
     res.status(500).json({
       message: err.message,
@@ -77,18 +91,18 @@ export const register = async (req, res) => {
   }
 };
 
+// LOGIN
+
 export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // Required fields
     if (!email || !password) {
       return res.status(400).json({
         message: "Email and password required",
       });
     }
 
-    // Email format validation
     if (!emailRegex.test(email)) {
       return res.status(400).json({
         message: "Invalid email format",
@@ -99,19 +113,13 @@ export const login = async (req, res) => {
       email: email.toLowerCase(),
     });
 
-    // Invalid credentials
     if (!user || !(await user.matchPassword(password))) {
       return res.status(401).json({
         message: "Invalid email or password",
       });
     }
 
-    const token = signToken(user._id);
-
-    res.json({
-      user,
-      token,
-    });
+    sendTokenResponse(user, 200, res);
   } catch (err) {
     res.status(500).json({
       message: err.message,
@@ -119,7 +127,21 @@ export const login = async (req, res) => {
   }
 };
 
+// LOGOUT
 
+export const logout = async (req, res) => {
+  res.cookie("token", "", {
+    httpOnly: true,
+
+    expires: new Date(0),
+  });
+
+  res.json({
+    message: "Logged out successfully",
+  });
+};
+
+// FORGOT PASSWORD
 
 export const forgotPassword = async (req, res) => {
   try {
@@ -141,13 +163,7 @@ export const forgotPassword = async (req, res) => {
       });
     }
 
-    // generate reset token
-
-    const resetToken = crypto
-      .randomBytes(32)
-      .toString("hex");
-
-    // hashed token
+    const resetToken = crypto.randomBytes(32).toString("hex");
 
     const hashedToken = crypto
       .createHash("sha256")
@@ -156,28 +172,18 @@ export const forgotPassword = async (req, res) => {
 
     user.resetPasswordToken = hashedToken;
 
-    user.resetPasswordExpire =
-      Date.now() + 1000 * 60 * 15; // 15 mins
+    user.resetPasswordExpire = Date.now() + 1000 * 60 * 15;
 
     await user.save();
 
-    // reset url
-
     const resetUrl =
-      `${process.env.CLIENT_URL}` +
-      `/reset-password/${resetToken}`;
-
-    // email html
+      `${process.env.CLIENT_URL}` + `/reset-password/${resetToken}`;
 
     const html = `
       <div style="font-family:sans-serif">
         <h2>Reset Your Password</h2>
 
         <p>You requested a password reset for HabitZen AI.</p>
-
-        <p>
-          Click below to reset your password:
-        </p>
 
         <a
           href="${resetUrl}"
@@ -201,13 +207,14 @@ export const forgotPassword = async (req, res) => {
 
     await sendEmail({
       to: user.email,
+
       subject: "Reset Your Password",
+
       html,
     });
 
     res.json({
-      message:
-        "Password reset email sent successfully",
+      message: "Password reset email sent successfully",
     });
   } catch (err) {
     res.status(500).json({
@@ -216,7 +223,7 @@ export const forgotPassword = async (req, res) => {
   }
 };
 
-
+// RESET PASSWORD
 
 export const resetPassword = async (req, res) => {
   try {
@@ -230,8 +237,6 @@ export const resetPassword = async (req, res) => {
       });
     }
 
-    // validate password
-
     if (!passwordRegex.test(password)) {
       return res.status(400).json({
         message:
@@ -239,14 +244,7 @@ export const resetPassword = async (req, res) => {
       });
     }
 
-    // hash incoming token
-
-    const hashedToken = crypto
-      .createHash("sha256")
-      .update(token)
-      .digest("hex");
-
-    // find user
+    const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
 
     const user = await User.findOne({
       resetPasswordToken: hashedToken,
@@ -258,12 +256,9 @@ export const resetPassword = async (req, res) => {
 
     if (!user) {
       return res.status(400).json({
-        message:
-          "Invalid or expired reset token",
+        message: "Invalid or expired reset token",
       });
     }
-
-    // update password
 
     user.password = password;
 
@@ -274,8 +269,7 @@ export const resetPassword = async (req, res) => {
     await user.save();
 
     res.json({
-      message:
-        "Password reset successful",
+      message: "Password reset successful",
     });
   } catch (err) {
     res.status(500).json({
@@ -284,12 +278,15 @@ export const resetPassword = async (req, res) => {
   }
 };
 
+// CURRENT USER
 
 export const me = async (req, res) => {
   res.json({
     user: req.user,
   });
 };
+
+// UPDATE PROFILE
 
 export const updateProfile = async (req, res) => {
   try {

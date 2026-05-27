@@ -1,3 +1,4 @@
+// backend/scripts/seed.js
 import "dotenv/config";
 import mongoose from "mongoose";
 import { format, subDays } from "date-fns";
@@ -7,10 +8,18 @@ import Habit from "../models/Habit.js";
 import HabitLog from "../models/HabitLog.js";
 import AIInsight from "../models/AIInsight.js";
 
-const EMAIL = "yukta3@gmail.com";
-const PASSWORD = "Yukta@3";
-const NAME = "Yukta";
 
+const EMAIL =
+  process.env.SEED_EMAIL ||
+  "demo@example.com";
+
+const PASSWORD =
+  process.env.SEED_PASSWORD ||
+  "Demo@123";
+
+const NAME =
+  process.env.SEED_NAME ||
+  "Demo User";
 
 
 const HABITS = [
