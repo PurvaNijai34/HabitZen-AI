@@ -1,6 +1,8 @@
   
 # Title : HabitZen AI
 
+# Live Demo : https://habitzenai.netlify.app/
+
 
 ## 📑 Table of Contents
 - [🔍 Overview](#overview)
