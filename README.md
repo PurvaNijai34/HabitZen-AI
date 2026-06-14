@@ -552,6 +552,3 @@ Through this project I learned:
 
 📧 Email: purvanijai05@gmail.com
 
----
-
-⭐ If you found this project useful, please consider giving it a star.
